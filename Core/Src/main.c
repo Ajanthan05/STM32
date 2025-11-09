@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "ms5837_hal.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,6 +64,37 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+ms583730ba01_h ref;
+uint16_t calibration[8]; // sensor PROM has several coefficients
+int32_t pressure, temperature;
+
+void sensor_read(void)
+{
+    // Reset device
+    if (ms5837_reset(&ref) != E_MS58370BA01_SUCCESS) {
+    	Error_Handler();
+    }
+
+    // Read PROM calibration (6-8 words depending on sensor)
+    if (ms5837_read_prom(&ref, calibration) != E_MS58370BA01_SUCCESS) {
+    	Error_Handler();
+    }
+
+    // OSR (over‐sampling ratio) command codes
+    int osr_d1 = 512;       // pressure conversion OSR
+    int osr_d2 = 512;       // temperature conversion OSR
+    uint16_t delay_d1 = 2;  // milliseconds — choose >= worst-case for OSR=512
+    uint16_t delay_d2 = 2;  // milliseconds
+
+
+    if (ms5837_read_temperature_and_pressure(&ref, calibration, &pressure, &temperature,
+                                            osr_d1, osr_d2, delay_d1, delay_d2) ==
+        E_MS58370BA01_SUCCESS) {
+        // pressure and temperature are now set (units depend on library)
+    } else {
+    	Error_Handler();
+    }
+}
 
 /* USER CODE END 0 */
 
@@ -91,7 +122,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  ms5837_hal_handle_init(&ref);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -111,6 +142,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+//	  Hi
   }
   /* USER CODE END 3 */
 }
@@ -365,6 +397,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 

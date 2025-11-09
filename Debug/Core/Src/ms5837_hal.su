@@ -1,0 +1,4 @@
+../Core/Src/ms5837_hal.c:8:27:hal_write_cmd	40	static
+../Core/Src/ms5837_hal.c:13:27:hal_read_data	40	static
+../Core/Src/ms5837_hal.c:18:13:hal_delay	16	static
+../Core/Src/ms5837_hal.c:23:6:ms5837_hal_handle_init	16	static
