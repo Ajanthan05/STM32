@@ -2,7 +2,9 @@
 #include "ms58_regs.h"
 #include <stdio.h>
 
-
+#ifndef printk
+#define printk(...)  printf(__VA_ARGS__)
+#endif
 
 // Reset the sensor
 ms583730ba01_err_t ms5837_reset(const ms583730ba01_h *h) {
