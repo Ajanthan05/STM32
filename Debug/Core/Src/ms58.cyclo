@@ -1,5 +1,5 @@
-../Core/Src/ms58.c:7:20:ms5837_reset	2
-../Core/Src/ms58.c:21:20:ms5837_read_prom	4
-../Core/Src/ms58.c:55:20:ms5837_read_adc	3
-../Core/Src/ms58.c:76:20:ms5837_start_conversion	1
-../Core/Src/ms58.c:80:20:ms5837_read_temperature_and_pressure	10
+../Core/Src/ms58.c:10:20:ms5837_reset	2
+../Core/Src/ms58.c:24:20:ms5837_read_prom	4
+../Core/Src/ms58.c:58:20:ms5837_read_adc	3
+../Core/Src/ms58.c:79:20:ms5837_start_conversion	1
+../Core/Src/ms58.c:83:20:ms5837_read_temperature_and_pressure	10

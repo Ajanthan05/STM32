@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 
+
 // Reset the sensor
 ms583730ba01_err_t ms5837_reset(const ms583730ba01_h *h) {
     ms583730ba01_err_t result = h->write_cmd(MS5837_RESET);

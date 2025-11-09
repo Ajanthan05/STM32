@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 #include "ms5837_hal.h"
 /* USER CODE END Includes */
 
@@ -68,31 +69,48 @@ ms583730ba01_h ref;
 uint16_t calibration[8]; // sensor PROM has several coefficients
 int32_t pressure, temperature;
 
-void sensor_read(void)
+volatile bool pressure_sample_requested = false;
+volatile bool pressure_read_in_progress = false;
+volatile bool pressure_new_sample_ready = false;
+
+// OSR (over‐sampling ratio) command codes
+const int osr_d1 = 512;       // pressure conversion OSR - choose 256/512/1024/2048/4096
+const int osr_d2 = 512;       // temperature conversion OSR
+const uint16_t delay_d1 = 2;  // milliseconds for OSR 512 (conservative)
+const uint16_t delay_d2 = 2;
+
+static void sensor_init_once(void)
 {
-    // Reset device
+    ms5837_hal_handle_init(&ref);
+
     if (ms5837_reset(&ref) != E_MS58370BA01_SUCCESS) {
-    	Error_Handler();
+        Error_Handler();
     }
 
-    // Read PROM calibration (6-8 words depending on sensor)
     if (ms5837_read_prom(&ref, calibration) != E_MS58370BA01_SUCCESS) {
-    	Error_Handler();
+        Error_Handler();
     }
+}
 
-    // OSR (over‐sampling ratio) command codes
-    int osr_d1 = 512;       // pressure conversion OSR
-    int osr_d2 = 512;       // temperature conversion OSR
-    uint16_t delay_d1 = 2;  // milliseconds — choose >= worst-case for OSR=512
-    uint16_t delay_d2 = 2;  // milliseconds
+static void sensor_do_blocking_read(void)
+{
+    pressure_read_in_progress = true;
+    if (ms5837_read_temperature_and_pressure(&ref, calibration,
+                                       &pressure, &temperature, osr_d1, osr_d2,
+									   delay_d1, delay_d2) == E_MS58370BA01_SUCCESS) {
+        // Sample ready in 'pressure' and 'temperature'
+        pressure_new_sample_ready = true;
+    }
+    //else {  optional: set an error flag, retry, log, or call Error_Handler() }
+    pressure_read_in_progress = false;
+}
 
-
-    if (ms5837_read_temperature_and_pressure(&ref, calibration, &pressure, &temperature,
-                                            osr_d1, osr_d2, delay_d1, delay_d2) ==
-        E_MS58370BA01_SUCCESS) {
-        // pressure and temperature are now set (units depend on library)
-    } else {
-    	Error_Handler();
+/* Timer callback (TIM2) — only set the flag, do minimal work in ISR */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim2) {
+        // Trigger sampling event (do not do I2C here)
+        pressure_sample_requested = true;
     }
 }
 
@@ -122,7 +140,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  ms5837_hal_handle_init(&ref);
+  sensor_init_once();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -131,6 +149,9 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_TIM2_Init();
+
+  // start TIM2 with interrupt
+  HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -139,6 +160,19 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if (pressure_sample_requested && !pressure_read_in_progress) {
+		  pressure_sample_requested = false; // consume request
+		  sensor_do_blocking_read();         // blocking call in main context
+		  // After this returns, 'pressure_new_sample_ready' will be true on success
+	  }
+
+	  /* Process new sample (non-blocking) */
+	  if (pressure_new_sample_ready) {
+		  pressure_new_sample_ready = false;
+		  // Convert pressure to engineering units if needed or push to DAC / telemetry
+		  // Example: update DAC (convert pressure->volts first)
+		  // dac_set_voltage_ch1(pressure_to_volts(pressure));
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
