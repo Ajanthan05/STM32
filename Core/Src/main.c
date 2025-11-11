@@ -23,6 +23,9 @@
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
 #include "ms5837_hal.h"
+#include "i2c_slave_app.h"
+
+#include "dac_ctrl.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -152,7 +155,23 @@ int main(void)
 
   // start TIM2 with interrupt
   HAL_TIM_Base_Start_IT(&htim2);
+
   /* USER CODE BEGIN 2 */
+  if (HAL_I2C_EnableListen_IT(&hi2c2) != HAL_OK) {
+      Error_Handler();
+  }
+
+
+  // DAC
+  uint32_t var;
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, var);
+  /* set channel 1 to 1.23 V */
+  dac_set_voltage_ch1(1.23f);
+
+  /* set channel 2 to max */
+
+
+  /* If you want to send raw code (for calibration/debug), use internal helper by calling volts_to_code after exposing it or writing a small wrapper. */
 
   /* USER CODE END 2 */
 
@@ -173,6 +192,22 @@ int main(void)
 		  // Example: update DAC (convert pressure->volts first)
 		  // dac_set_voltage_ch1(pressure_to_volts(pressure));
 	  }
+
+
+	  if (i2c2_rx_complete) {
+		  /* take snapshot of received value and clear flag atomically */
+		  __disable_irq();
+		  uint32_t cmd = received_cmd_value;
+		  i2c2_rx_complete = false;
+		  __enable_irq();
+
+		  /* Process in main context (blocking or heavier tasks allowed) */
+		  response_value = cmd;               /* simple example: make response echo the command */
+		  process_received_command_from_main();/* perform actual processing */
+	  }
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -343,7 +378,7 @@ static void MX_I2C2_Init(void)
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
   hi2c2.Init.Timing = 0x00000608;
-  hi2c2.Init.OwnAddress1 = 132;
+  hi2c2.Init.OwnAddress1 = 0x42;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;

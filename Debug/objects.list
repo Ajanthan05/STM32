@@ -1,3 +1,4 @@
+"./Core/Src/i2c_slave_app.o"
 "./Core/Src/main.o"
 "./Core/Src/ms58.o"
 "./Core/Src/ms5837_hal.o"
@@ -25,3 +26,4 @@
 "./Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_rcc_ex.o"
 "./Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_tim.o"
 "./Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_tim_ex.o"
+"./drivers/dac_ctrl.o"

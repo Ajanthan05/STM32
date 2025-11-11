@@ -1,4 +1,4 @@
-Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
+Core/Src/i2c_slave_app.o: ../Core/Src/i2c_slave_app.c ../Core/Inc/main.h \
  /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h \
  ../Core/Inc/stm32l0xx_hal_conf.h \
  /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_rcc.h \
@@ -29,8 +29,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr_ex.h \
  /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h \
  /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h \
- ../Core/Inc/ms5837_hal.h ../Core/Inc/ms58.h ../Core/Inc/ms58_regs.h \
- ../Core/Inc/i2c_slave_app.h ../Core/Inc/main.h ../drivers/dac_ctrl.h
+ ../Core/Inc/i2c_slave_app.h ../Core/Inc/main.h
 ../Core/Inc/main.h:
 /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h:
 ../Core/Inc/stm32l0xx_hal_conf.h:
@@ -62,9 +61,5 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr_ex.h:
 /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h:
 /home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h:
-../Core/Inc/ms5837_hal.h:
-../Core/Inc/ms58.h:
-../Core/Inc/ms58_regs.h:
 ../Core/Inc/i2c_slave_app.h:
 ../Core/Inc/main.h:
-../drivers/dac_ctrl.h:
