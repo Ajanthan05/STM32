@@ -1,0 +1,15 @@
+/home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/CMSIS/Include/core_cm0plus.h:741:22:__NVIC_EnableIRQ	16	static
+/home/ajanthan/STM32Cube/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/CMSIS/Include/core_cm0plus.h:777:22:__NVIC_DisableIRQ	16	static,ignoring_inline_asm
+../Core/Src/main.c:97:13:sensor_init_once	8	static
+../Core/Src/main.c:110:13:sensor_do_blocking_read	48	static
+../Core/Src/main.c:122:14:pressure_to_kpa	16	static
+../Core/Src/main.c:125:14:apply_calib_and_clip	24	static
+../Core/Src/main.c:132:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:148:5:main	32	static
+../Core/Src/main.c:245:6:SystemClock_Config	128	static
+../Core/Src/main.c:296:13:MX_DAC_Init	16	static
+../Core/Src/main.c:343:13:MX_I2C1_Init	8	static
+../Core/Src/main.c:391:13:MX_I2C2_Init	8	static
+../Core/Src/main.c:439:13:MX_TIM2_Init	32	static
+../Core/Src/main.c:484:13:MX_GPIO_Init	24	static
+../Core/Src/main.c:508:6:Error_Handler	8	static,ignoring_inline_asm

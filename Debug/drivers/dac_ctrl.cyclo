@@ -1,0 +1,9 @@
+../drivers/dac_ctrl.c:7:24:volts_to_code	4
+../drivers/dac_ctrl.c:19:21:clampf	3
+../drivers/dac_ctrl.c:25:19:dac_init	3
+../drivers/dac_ctrl.c:39:26:write_dac_channel	2
+../drivers/dac_ctrl.c:48:19:dac_set_voltage_ch1	1
+../drivers/dac_ctrl.c:55:19:dac_set_voltage_ch2	1
+../drivers/dac_ctrl.c:63:14:map_linear	2
+../drivers/dac_ctrl.c:70:19:dac_set_scaled_ch1	1
+../drivers/dac_ctrl.c:80:19:dac_set_scaled_ch2	1

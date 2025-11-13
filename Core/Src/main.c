@@ -26,6 +26,11 @@
 #include "i2c_slave_app.h"
 
 #include "dac_ctrl.h"
+//#include "ms5837.h"
+#include "board.h"
+#include "dac_calib.h"
+
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,7 +40,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+//MS5837-02BA (0–2 bar ≈ 200 kPa)
+#define PRESSURE_MIN_KPA   0.0f
+#define PRESSURE_MAX_KPA   200.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,6 +60,7 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,8 +77,12 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 ms583730ba01_h ref;
-uint16_t calibration[8]; // sensor PROM has several coefficients
 int32_t pressure, temperature;
+
+uint16_t ms_calib[8];  // Setup
+dac_calib_t dac1_calib; // for DAC1 (pressure mapping)
+dac_calib_t dac2_calib; // for DAC2 (I2C-controlled output)
+
 
 volatile bool pressure_sample_requested = false;
 volatile bool pressure_read_in_progress = false;
@@ -90,32 +102,42 @@ static void sensor_init_once(void)
         Error_Handler();
     }
 
-    if (ms5837_read_prom(&ref, calibration) != E_MS58370BA01_SUCCESS) {
+    if (ms5837_read_prom(&ref, ms_calib) != E_MS58370BA01_SUCCESS) {
         Error_Handler();
     }
 }
 
-static void sensor_do_blocking_read(void)
+static bool sensor_do_blocking_read(void)
 {
     pressure_read_in_progress = true;
-    if (ms5837_read_temperature_and_pressure(&ref, calibration,
-                                       &pressure, &temperature, osr_d1, osr_d2,
-									   delay_d1, delay_d2) == E_MS58370BA01_SUCCESS) {
-        // Sample ready in 'pressure' and 'temperature'
-        pressure_new_sample_ready = true;
+    bool ok = false;
+    if (ms5837_read_temperature_and_pressure(&ref, ms_calib, &pressure, &temperature,
+                                            osr_d1, osr_d2, delay_d1, delay_d2) == E_MS58370BA01_SUCCESS) {
+        ok = true;
     }
-    //else {  optional: set an error flag, retry, log, or call Error_Handler() }
     pressure_read_in_progress = false;
+    return ok;
 }
 
-/* Timer callback (TIM2) — only set the flag, do minimal work in ISR */
+static float pressure_to_kpa(int32_t p_pa) {
+    return ((float)p_pa) / 1000.0f;
+}
+static float apply_calib_and_clip(const dac_calib_t *c, float volts) {
+    float cmd = dac_calib_apply(c, volts);
+    if (cmd < 0.0f) cmd = 0.0f;
+    if (cmd > BOARD_VREF_V) cmd = BOARD_VREF_V;
+    return cmd;
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == &htim2) {
-        // Trigger sampling event (do not do I2C here)
         pressure_sample_requested = true;
     }
 }
+
+
+
 
 /* USER CODE END 0 */
 
@@ -152,26 +174,21 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_TIM2_Init();
-
+  /* USER CODE BEGIN 2 */
   // start TIM2 with interrupt
   HAL_TIM_Base_Start_IT(&htim2);
-
-  /* USER CODE BEGIN 2 */
+  
   if (HAL_I2C_EnableListen_IT(&hi2c2) != HAL_OK) {
       Error_Handler();
   }
 
 
   // DAC
-  uint32_t var;
-  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, var);
-  /* set channel 1 to 1.23 V */
-  dac_set_voltage_ch1(1.23f);
-
-  /* set channel 2 to max */
+  if (dac_init() != DAC_CTRL_OK) Error_Handler();
+  dac_calib_init(&dac1_calib);
+  dac_calib_init(&dac2_calib);
 
 
-  /* If you want to send raw code (for calibration/debug), use internal helper by calling volts_to_code after exposing it or writing a small wrapper. */
 
   /* USER CODE END 2 */
 
@@ -180,31 +197,36 @@ int main(void)
   while (1)
   {
 	  if (pressure_sample_requested && !pressure_read_in_progress) {
-		  pressure_sample_requested = false; // consume request
-		  sensor_do_blocking_read();         // blocking call in main context
-		  // After this returns, 'pressure_new_sample_ready' will be true on success
-	  }
+		  pressure_sample_requested = false;
+		  if (sensor_do_blocking_read()) {
+			  float p_kpa = pressure_to_kpa(pressure);
+			  float mapped_volts = ( (p_kpa - PRESSURE_MIN_KPA) / (PRESSURE_MAX_KPA - PRESSURE_MIN_KPA) ) * BOARD_VREF_V;
+			  if (mapped_volts < 0.0f) mapped_volts = 0.0f;
+			  if (mapped_volts > BOARD_VREF_V) mapped_volts = BOARD_VREF_V;
 
-	  /* Process new sample (non-blocking) */
-	  if (pressure_new_sample_ready) {
-		  pressure_new_sample_ready = false;
-		  // Convert pressure to engineering units if needed or push to DAC / telemetry
-		  // Example: update DAC (convert pressure->volts first)
-		  // dac_set_voltage_ch1(pressure_to_volts(pressure));
-	  }
+			  float cmd_volts = apply_calib_and_clip(&dac1_calib, mapped_volts);
+			  dac_set_voltage_ch1(cmd_volts);
 
+			  response_value = (uint32_t)pressure;
+		  }
+	  }
 
 	  if (i2c2_rx_complete) {
-		  /* take snapshot of received value and clear flag atomically */
-		  __disable_irq();
-		  uint32_t cmd = received_cmd_value;
+//		  __disable_irq();
+		  //Here only disable I2C2 event interrupt
+		  NVIC_DisableIRQ(I2C2_IRQn);
+		  uint32_t v = received_cmd_value;
 		  i2c2_rx_complete = false;
-		  __enable_irq();
+//		  __enable_irq();
+		  NVIC_EnableIRQ(I2C2_IRQn);
 
-		  /* Process in main context (blocking or heavier tasks allowed) */
-		  response_value = cmd;               /* simple example: make response echo the command */
-		  process_received_command_from_main();/* perform actual processing */
+		  float req_volts = ((float)v) / 1000.0f;
+		  float cmd_volts = apply_calib_and_clip(&dac2_calib, req_volts);
+		  dac_set_voltage_ch2(cmd_volts);
 	  }
+
+	  HAL_Delay(1);
+
 
 
 
@@ -233,13 +255,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_5;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_3;
+  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -249,12 +271,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -377,8 +399,8 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00000608;
-  hi2c2.Init.OwnAddress1 = 0x42;
+  hi2c2.Init.Timing = 0x00805C87;
+  hi2c2.Init.OwnAddress1 = 36;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;
@@ -428,9 +450,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 15;
+  htim2.Init.Prescaler = 23999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1999;
+  htim2.Init.Period = 1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
